@@ -1,0 +1,17 @@
+# Database
+db.sqlite3
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtualenv
+.venv/
+venv/
+
+# Build / dist
+.dist/
+
+# OS
+Thumbs.db
+.DS_Store
