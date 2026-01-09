@@ -360,15 +360,37 @@ def get_delete_status(request):
 MESSAGE_CACHE_KEY = "latest_message_{}"
 BUTTON_STATUS_KEY = "button_status_{}"
 
+
 @api_view(['POST'])
 def post_message(request, robot_id: str):
-    """API to post a message and store it in cache for 5 minutes for a specific robot"""
     message = request.data.get("message")
-    if not message:
-        return Response({"error": "Message is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-    cache.set(MESSAGE_CACHE_KEY.format(robot_id), message, timeout=15) 
-    return Response({"status": "ok", "message": "Message posted successfully"}, status=status.HTTP_201_CREATED)
+    if not message:
+        return Response(
+            {"error": "Message is required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Store message in cache (short-lived)
+    cache.set(MESSAGE_CACHE_KEY.format(robot_id), message, timeout=15)
+
+    # 🔥 WebSocket broadcast (single global group)
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        "robot_group",
+        {
+            "type": "robot_message_event",
+            "data": {
+                "robot_id": robot_id,
+                "message": message
+            }
+        }
+    )
+
+    return Response(
+        {"status": "ok", "message": "Message posted successfully"},
+        status=status.HTTP_201_CREATED
+    )
 
 
 @api_view(['GET'])
@@ -624,7 +646,7 @@ def create_or_update_charge(request):
         async_to_sync(channel_layer.group_send)(
             "robot_group",
             {
-                "type": "charge_event",
+                "type": "robot_charge_updates",
                 "data": {
                     "event": "created" if created else "updated",
                     "charge_id": charge_obj.id,
@@ -992,18 +1014,30 @@ def set_charging_status(request):
     status_value = request.data.get('status')
 
     if not isinstance(status_value, bool):
-        return Response({'error': 'status must be true or false'}, status=drf_status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {'error': 'status must be true or false'},
+            status=drf_status.HTTP_400_BAD_REQUEST
+        )
 
-    Charging.objects.all().delete()  # ensure only one object
-    serializer = ChargingSerializer(data={'status': status_value})
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=drf_status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=drf_status.HTTP_400_BAD_REQUEST)
+    # Ensure only one charging object exists
+    Charging.objects.all().delete()
+    charging = Charging.objects.create(status=status_value)
 
+    serializer = ChargingSerializer(charging)
 
+    # 🔥 WebSocket broadcast
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        "robot_group",
+        {
+            "type": "charging_status_event",
+            "data": {
+                "status": charging.status
+            }
+        }
+    )
 
-
+    return Response(serializer.data, status=drf_status.HTTP_201_CREATED)
 
 
 

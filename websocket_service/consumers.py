@@ -60,3 +60,17 @@ class RobotConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             "event":"robot_charge_updates",
             "data":event["data"]}))
+        
+    async def charging_status_event(self, event):
+        await self.send(text_data=json.dumps({
+            "type":"charging_status",
+            "data":{"status": event["data"]["status"]}
+        }))
+
+    
+    async def robot_message_event(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "robot_message",
+            "robot_id": event["data"]["robot_id"],
+            "message": event["data"]["message"]
+        }))
