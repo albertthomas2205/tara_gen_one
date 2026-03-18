@@ -48,6 +48,15 @@ redis-server
 
 ---
 
+## 🗄️ Run Migrations
+
+```
+python manage.py makemigrations
+python manage.py migrate
+```
+
+---
+
 ## ▶️ Run the Project
 
 ```
@@ -82,6 +91,13 @@ curl -X POST http://localhost:8000/robot-battery/ \\
 
 ---
 
-## 👨‍💻 Project Name
+## 👨‍💻 Author
+
+**Albert Thomas – Backend Developer**
+
+---
+
+## 📌 Project Name
 
 **Tara Gen One**
+
